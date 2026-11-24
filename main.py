@@ -23,21 +23,46 @@ Why it fits the judge's five criteria, in plain terms:
 
 import os
 
+USERNAME = "karmilanerila"
+ENTRY_FILENAME = "entry.txt"
+DEFAULT_OUTPUT_DIR = "/output"
+
+
+def resolve_output_dir() -> str:
+    """Pick the output directory, ignoring a blank env value."""
+    configured = os.environ.get("MAKEFUN_OUTPUT_DIR", "").strip()
+    return configured or DEFAULT_OUTPUT_DIR
+
+
+def validate_username(name: str) -> str:
+    """Reject anything that is not one plain word of 1-30 characters."""
+    if not 1 <= len(name) <= 30:
+        raise ValueError("username must be 1-30 characters long")
+    if any(ch.isspace() for ch in name):
+        raise ValueError("username must be a single word with no whitespace")
+    if not name.isascii() or not name.isalnum():
+        raise ValueError("username must contain only letters and digits")
+    return name
+
 
 def main() -> None:
-    username = "karmilanerila"
-    assert 1 <= len(username) <= 30, "username must be 1-30 characters"
-    assert not any(ch.isspace() for ch in username), "no whitespace allowed"
-    assert " " not in username, "single word only"
+    username = validate_username(USERNAME)
 
-    output_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
+    output_dir = resolve_output_dir()
     os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, "entry.txt")
+    path = os.path.join(output_dir, ENTRY_FILENAME)
 
     data = username.encode("utf-8")
     with open(path, "wb") as handle:
         handle.write(data)
     os.chmod(path, 0o644)
+
+    # Read the file back and refuse to finish unless it holds exactly
+    # the username bytes, so a partial or altered write never slips by.
+    with open(path, "rb") as handle:
+        written = handle.read()
+    if written != data:
+        raise RuntimeError("entry.txt does not match the username")
 
 
 if __name__ == "__main__":
